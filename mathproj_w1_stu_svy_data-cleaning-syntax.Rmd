@@ -1,0 +1,247 @@
+---
+title: "Math Project Student Survey Data Cleaning Syntax"
+editor_options: 
+  chunk_output_type: console
+---
+
+## Data cleaning date: 2023-02-15
+## Cleaned by: Crystal Lewis
+## Project: Math intervention project
+## Wave: Wave 1
+## Data: Student Survey Data
+
+```{r setup, include=FALSE, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+## libraries ##
+library(tidyverse)
+library(janitor)
+library(stringr)
+library(labelled)
+library(readxl)
+library(pointblank)
+library(haven)
+
+```
+
+```{r Read in data}
+
+svy <- read_csv("data/w1_mathproj_stu_svy_raw.csv")
+
+```
+
+```{r (01) Review the data}
+
+glimpse(svy)
+
+```
+
+```{r (02) Adjust cases as needed}
+
+# Check for duplicates - 1347 is duplicated
+
+svy %>%
+  get_dupes(stu_id)
+
+# Remove duplicates 
+# Both surveys are complete - arrange by svy_date ascending
+
+svy <- svy %>%
+  arrange(svy_date) %>%
+  distinct(stu_id, .keep_all = TRUE)
+
+# Check - Review data after dropping the duplicates
+
+svy
+
+```
+
+```{r (03) De-identify data}
+
+# Drop `svy_date`
+
+svy <- svy %>%
+  select(-svy_date)
+
+# Check - Review after drop
+
+names(svy)
+
+```
+
+```{r (07) Normalize variables}
+
+# Fix `math2`
+
+# Check - Review before - there is a return in one value
+
+svy %>%
+  tabyl(math2)
+
+# Remove "\n"
+
+svy <- svy %>%
+  mutate(math2 = str_remove(math2, "\n"))
+
+# Check - Review after
+
+svy %>%
+  tabyl(math2)
+
+```
+
+```{r (09) Update variable types}
+
+# Update both `math2` to numeric
+
+# Check - Review before
+
+class(svy$math2)
+
+# Change variable types - pay close attention to warnings here - if warnings are thrown there may still be characters in the variable
+
+svy <- svy %>%
+  mutate(math2 = as.numeric(math2))
+
+# Check - Review after
+
+class(svy$math2)
+
+
+```
+
+```{r (11) Construct variables}
+
+# Construct `int`
+
+svy <- svy %>%
+  mutate(int = case_when(
+    stu_id %in% c(1347, 1368, 1387) ~ 1,
+    TRUE ~ 0
+  ))
+
+# Review `int`
+
+svy %>%
+  tabyl(int)
+
+
+```
+
+```{r (12) Add missing values}
+
+svy <- svy %>% 
+  mutate(across(math1:math4, ~replace_na(., -99)))
+
+```
+
+```{r (13) Add metadata}
+
+# Add value labels
+
+svy <- svy %>% 
+  mutate(across(math1:math4, 
+            ~labelled(., labels = c(`strongly disagree` = 1, 
+                                    `disagree` = 2, 
+                                    `agree`= 3,
+                                    `strongly agree` = 4)))) %>%
+  set_value_labels(int = c(treatment = 1, control = 0))
+
+# Check - value labels
+
+val_labels(svy)
+
+# Add missing value labels
+
+svy <- svy %>% 
+  mutate(across(math1:math4, ~(`na_values<-`
+                                (., -999))))
+
+# Check - missing value labels
+
+na_values(svy)
+
+# Add variable labels using our data dictionary
+
+## Read in data dictionary and pull variable labels into a named list
+
+var_labels <- read_excel("mathproj_stu_svy_data-dictionary.xlsx") %>%
+  select(var_name, label) %>%
+  deframe() %>%
+  as.list()
+
+# Add variable labels
+
+svy <- svy %>%
+  set_variable_labels(.labels = var_labels)
+
+# Check- variable labels
+
+var_label(svy)
+
+
+```
+
+```{r (14) Validate data}
+
+# Validate data using the `pointblank` package
+
+create_agent(svy) %>%
+  rows_distinct(columns = vars(stu_id)) %>%
+  col_vals_between(columns = c(stu_id), left = 1300, right = 1400, na_pass = TRUE) %>%
+  col_vals_in_set(columns = c(grade_level), 
+                  set = c(9, 10, 11, 12, NA)) %>%
+  col_vals_in_set(columns = c(int),
+                  set = c(0, 1, NA)) %>%
+  col_vals_in_set(columns = c(math1:math4),
+                  set = c(1, 2, 3, 4, -99)) %>%
+  interrogate()
+
+```
+
+```{r Export data}
+
+write_sav(svy, "data/w1_mathproj_stu_svy_clean.sav")
+
+```
+
+```{r Create session info}
+
+sessionInfo()
+
+```
+
+R version 4.1.2 (2021-11-01)
+Platform: x86_64-w64-mingw32/x64 (64-bit)
+Running under: Windows 10 x64 (build 19045)
+
+Matrix products: default
+
+locale:
+[1] LC_COLLATE=English_United States.1252  LC_CTYPE=English_United States.1252   
+[3] LC_MONETARY=English_United States.1252 LC_NUMERIC=C                          
+[5] LC_TIME=English_United States.1252    
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+ [1] haven_2.5.0            pointblank_0.10.0.9000 readxl_1.4.0           labelled_2.9.1        
+ [5] janitor_2.1.0          forcats_0.5.1          stringr_1.5.0          dplyr_1.0.9           
+ [9] purrr_0.3.4            readr_2.1.2            tidyr_1.1.4            tibble_3.1.8          
+[13] ggplot2_3.4.0          tidyverse_1.3.2       
+
+loaded via a namespace (and not attached):
+ [1] lubridate_1.8.0     assertthat_0.2.1    digest_0.6.29       utf8_1.2.2          R6_2.5.1           
+ [6] cellranger_1.1.0    backports_1.4.1     reprex_2.0.1        evaluate_0.20       httr_1.4.3         
+[11] pillar_1.8.1        rlang_1.0.6         googlesheets4_1.0.1 rstudioapi_0.13     checkmate_2.1.0    
+[16] rmarkdown_2.16      googledrive_2.0.0   bit_4.0.4           munsell_0.5.0       broom_1.0.3        
+[21] compiler_4.1.2      modelr_0.1.10       xfun_0.30           pkgconfig_2.0.3     htmltools_0.5.3    
+[26] tidyselect_1.2.0    fansi_1.0.3         crayon_1.5.2        tzdb_0.3.0          dbplyr_2.1.1       
+[31] withr_2.5.0         commonmark_1.8.0    grid_4.1.2          jsonlite_1.8.4      gtable_0.3.1       
+[36] lifecycle_1.0.3     DBI_1.1.2           magrittr_2.0.3      scales_1.2.1        cli_3.2.0          
+[41] stringi_1.7.12      vroom_1.5.7         fs_1.5.2            snakecase_0.11.0    xml2_1.3.3         
+[46] ellipsis_0.3.2      generics_0.1.3      vctrs_0.5.2         tools_4.1.2         bit64_4.0.5        
+[51] glue_1.6.2          hms_1.1.2           yaml_2.3.5          parallel_4.1.2      fastmap_1.1.0      
+[56] colorspace_2.0-2    gargle_1.2.0        gt_0.5.0            rvest_1.0.2         blastula_0.3.2     
+[61] knitr_1.40          sass_0.4.2         
