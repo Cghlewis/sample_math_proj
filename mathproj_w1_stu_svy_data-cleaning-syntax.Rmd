@@ -155,7 +155,7 @@ val_labels(svy)
 
 svy <- svy %>% 
   mutate(across(math1:math4, ~(`na_values<-`
-                                (., -999))))
+                                (., -99))))
 
 # Check - missing value labels
 
@@ -194,7 +194,7 @@ create_agent(svy) %>%
   col_vals_in_set(columns = c(int),
                   set = c(0, 1, NA)) %>%
   col_vals_in_set(columns = c(math1:math4),
-                  set = c(1, 2, 3, 4, -99)) %>%
+                  set = c(1, 2, 3, 4, NA)) %>%
   interrogate()
 
 ```
