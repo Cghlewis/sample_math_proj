@@ -163,7 +163,7 @@ na_values(svy)
 
 # Add variable labels using our data dictionary
 
-## Read in data dictionary and pull variable labels into a named list
+# Read in data dictionary and pull variable labels into a named list
 
 var_labels <- read_excel("mathproj_stu_svy_data-dictionary.xlsx") %>%
   select(var_name, label) %>%
