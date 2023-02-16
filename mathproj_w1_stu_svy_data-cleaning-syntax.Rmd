@@ -44,7 +44,7 @@ svy %>%
   get_dupes(stu_id)
 
 # Remove duplicates 
-# Both surveys are complete - arrange by svy_date ascending
+# Both surveys are complete - arrange by `svy_date` ascending
 
 svy <- svy %>%
   arrange(svy_date) %>%
